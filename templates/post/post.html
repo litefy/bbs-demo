@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block main %}
+<div class="row">
+	<div class="span2">
+		<div>楼主 {{post.author}} 发表</div>
+		<div>于{{post.create_time|date:"Y-m-d H:i:s"}}</div>
+	</div>
+	<div class="span9">
+		<h4>主题: {{post.title}}</h4>
+		<p>{{post.content}}</p>
+		{% if user.is_authenticated %}
+		<a class="btn btn-primary pull-right" href="#post-comment"><i class="icon-plus"></i> 回复</a>
+		{% endif %}
+	</div>
+</div>
+<hr/>
+{% for comment in comments %}
+<div class="row">
+	<div class="span2">
+		<div>{{comment.author}} 回复</div>
+		<div>于{{comment.create_time|date:"Y-m-d H:i:s"}}</div>
+	</div>
+	<div class="span9">
+		<p>{{comment.content}}</p>
+	</div>
+</div>
+<hr/>
+{% endfor %}
+{% if user.is_authenticated %}
+<div id="comment-add-item" class="row">
+	<div class="span2">
+		<div>{{user.username}}</div>
+	</div>
+	<div class="span9">
+		<form id="comment-add" class="form-horizontal" action="/comment/create/" method="get">{% csrf_token %}
+			<div class="control-group">
+			<label class="control-label" for="comment-add-content">回复楼主</label>
+				<div class="controls">
+					<textarea rows="3" id="comment-add-content" name="content" placeholder="多写几句吧"></textarea>
+				</div>
+			</div>
+			<input type="hidden" id="comment-add-post_id" name="post_id" value="{{post.id}}">
+			<div class="control-group">
+				<div class="controls">
+					<button id="comment-submit" type="button" class="btn btn-primary offset2">发表</button>
+				</div>
+			</div>
+		</form>
+	</div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block js %}
+<script type="text/javascript">
+$(function () {
+	commentAddRel = {
+		renderAddedComment: function(respData, respStatus) {
+			var data = respData[0];
+			console.log(data);
+			if (data) {
+				var comment = data.fields;
+				comment['id'] = data.pk;
+				var commentAdded = $('<div class="row">' +
+								'<div class="span2">' +
+									'<div>' + '{{user.username}}' + ' 回复</div>' +
+									'<div>于' + commentAddRel.datetimeFormat(comment.create_time) + '</div>' +
+								'</div>' +
+								'<div class="span9">' +
+									'<p>' + comment.content + '</p>' +
+								'</div>' +
+							'</div>' +	
+							'<hr/>');
+				commentAdded.insertBefore('#comment-add-item');
+			}
+		},
+		datetimeFormat: function(date) {
+			date = date.replace(/\D/g," ");
+			var date_parts = date.split(" ");
+			var yyyy = date_parts[0],
+    			mm = date_parts[1],
+    			dd = new Number(date_parts[2]),
+    			hh = new Number(date_parts[3]) - new Date().getTimezoneOffset()/60,
+    			mi = date_parts[4],
+    			ss = date_parts[5];
+    			if (hh > 23) {
+    				hh = hh % 24;
+    				dd = dd + 1;
+    			}
+    		return yyyy + '-' + mm + '-' + dd + ' ' + hh + ':' + mi + ':' + ss;
+		},
+		init: function() {
+			$('#comment-submit').click(function() {
+				var form = $('#comment-add');
+				var post_id = $('#comment-add-post_id').val();
+				var content_ele = $('#comment-add-content');
+				var data = {
+					post_id: post_id,
+					content: content_ele.val()
+				}
+				$.ajax({
+					type: 'get',
+					cache: false,
+					url: form.attr('action'),
+					data: data,
+					dataType: 'json',
+					contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+					success : commentAddRel.renderAddedComment,
+					error : function(XMLHttpRequest, textStatus, errorThrown) {
+						console.log(textStatus + '|' + errorThrown);
+						alert('发表失败');
+					}
+				});
+				content_ele.val('');
+			});
+		}
+	};
+
+	commentAddRel.init();
+
+});
+</script>
+{% endblock %}

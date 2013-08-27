@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block main %}
+{% if user.is_authenticated %}
+	<button id="post-add-activate" class="btn btn-primary"><i class="icon-plus"></i> 发帖</button>
+
+	<form id="post-add" class="form-horizontal hide" action="/post/create/" method="get">{% csrf_token %}
+		<div class="control-group">
+			<label class="control-label" for="post-add-title">写贴</label>
+			<div class="controls">
+				<input type="text" id="post-add-title" name="post" placeholder="标题">
+			</div>
+		</div>
+		<div class="control-group">
+	    <label class="control-label" for="post-add-content">内容</label>
+			<div class="controls">
+				<textarea rows="3" id="post-add-content" name="content"></textarea>
+			</div>
+		</div>
+		<div class="control-group">
+			<div class="controls">
+				<button id="post-cancel" type="button" class="btn offset1">取消</button>
+				<button id="post-submit" type="button" class="btn btn-primary">发表</button>
+			</div>
+		</div>
+	</form>
+{% endif %}
+<table id="posts" class="table table-hover table-striped">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th class="span9">主题</th>
+        <th>发帖时间</th>
+        <th>作者</th>
+      </tr>
+    </thead>
+    <tbody>
+    	{% for post in posts %}
+      	<tr>
+    		<td>#</td>
+        	<td><a href="/post/{{post.id}}">{{post.title}}</a></td>
+        	<td>{{post.create_time|date:"Y-m-d H:i:s"}}</td>
+        	<td>{{post.author}}{% if user.is_authenticated %} <a class="btn btn-danger" href="/post/{{post.id}}/del">删除</a>{% endif %}</td>
+        	
+    	</tr>
+    	{% endfor %}
+    </tbody>
+  </table>
+<div class="pagination pagination-right">
+	<ul>
+		{% if posts.has_previous %}
+        <li><a href="/home?page={{posts.previous_page_number}}">&laquo;</a></li>
+        {% else %}
+        <li class="disabled"><span>&laquo;</span></li>
+        {% endif %}
+
+		{% for page_number in posts.paginator.page_range %}
+		<li {% ifequal page_number posts.number %}class="active"{% endifequal %}><a href="/home?page={{page_number}}">{{page_number}}</a></li>
+		{% endfor %}
+
+		{% if posts.has_next %}
+		<li><a href="/home?page={{posts.next_page_number }}">&raquo;</a></li>
+		{% else %}
+		<li class="disabled"><span>&raquo;</span></li>
+		{% endif %}
+	</ul>
+</div>
+{% endblock %}
+
+{% block js %}
+<script type="text/javascript">
+$(function () {
+	var togglePost = function() {
+		$('#post-add-activate, #post-add').toggle();
+	};
+	$('#post-add-activate, #post-cancel').click(function() {
+		togglePost();
+	});
+	postAddRel = {
+		renderAddedPost: function(respData, respStatus) {
+			var data = respData[0];
+			console.log(data);
+			if (data) {
+				var post = data.fields;
+				post['id'] = data.pk;
+				var postAdded = $('<tr>' +
+	        					'<td>#</td>' +
+	            				'<td><a href="/post/' + post.id + '">' + post.title + '</a></td>' +
+	            				'<td>' + postAddRel.datetimeFormat(post.create_time) + '</td>' +
+	            				'<td>{{user.username}}</td>' +
+	        				'</tr>');
+				$('#posts').find('tbody').prepend(postAdded);
+			}
+		},
+		datetimeFormat: function(date) {
+			date = date.replace(/\D/g," ");
+			var date_parts = date.split(" ");
+			// var yyyy = date_parts[0],
+   //  			mm = date_parts[1] - 1,
+   //  			dd = date_parts[2],
+   //  			hh = date_parts[3],
+   //  			mi = date_parts[4],
+   //  			ss = date_parts[5];
+			// return new Date(yyyy, mm, dd, hh, mi, ss);
+			var yyyy = date_parts[0],
+    			mm = date_parts[1],
+    			dd = new Number(date_parts[2]),
+    			hh = new Number(date_parts[3]) - new Date().getTimezoneOffset()/60,
+    			mi = date_parts[4],
+    			ss = date_parts[5];
+    			if (hh > 23) {
+    				hh = hh % 24;
+    				dd = dd + 1;
+    			}
+    		return yyyy + '-' + mm + '-' + dd + ' ' + hh + ':' + mi + ':' + ss;
+		},
+		init: function() {
+			$('#post-submit').click(function() {
+				var title_ele = $('#post-add-title');
+				var content_ele = $('#post-add-content');
+				var data = {
+					title: title_ele.val(),
+					content: content_ele.val()
+				}
+				var form = $('#post-add');
+				$.ajax({
+					type: form.attr('method'),
+					cache: false,
+					url: form.attr('action'),
+					data: data,
+					dataType: 'json',
+					contentType: "application/x-www-form-urlencoded; charset=UTF-8",
+					success : postAddRel.renderAddedPost,
+					error : function(XMLHttpRequest, textStatus, errorThrown) {
+						console.log(textStatus + '|' + errorThrown);
+					}
+				});
+
+				title_ele.val('');
+				content_ele.val('');
+				togglePost();
+			});
+		}
+	};
+
+	postAddRel.init();
+
+});
+</script>
+{% endblock %}
